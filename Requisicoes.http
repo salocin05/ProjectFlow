@@ -1,0 +1,47 @@
+### Listar Projetos
+GET http://localhost:8080/projetos
+
+### Criar Novo Projeto
+POST http://localhost:8080/projetos
+Content-Type: application/json
+
+{
+  "nome": "Projeto via IntelliJ",
+  "descricao": "Testando direto da IDE sem Postman!"
+
+### 1. Criar um Projeto (Para garantir que temos um projeto no banco)
+POST http://localhost:8080/projetos
+Content-Type: application/json
+
+{
+  "nome": "Projeto Integrador",
+  "descricao": "Projeto para testar o relacionamento com tarefas"
+}
+
+### 2. Criar uma Tarefa vinculada a esse Projeto
+# ATENÇÃO: Se o projeto criado acima não for o ID 1, mude o número 1 no final desta URL para o ID correto!
+POST http://localhost:8080/tarefas/projeto/4
+Content-Type: application/json
+
+{
+  "titulo": "Modelar banco de dados",
+  "descricao": "Criar as tabelas e os relacionamentos no MySQL"
+}
+
+### 3. Listar todas as Tarefas do Projeto 1
+GET http://localhost:8080/tarefas/projeto/4
+
+### 4. Atualizar uma Tarefa (Marcando como concluída)
+# ATENÇÃO: O número 1 no final é o ID da Tarefa (não do projeto). 
+# Se a sua tarefa tiver outro ID, mude ali.
+PUT http://localhost:8080/tarefas/1
+Content-Type: application/json
+
+{
+  "titulo": "Modelar banco de dados",
+  "descricao": "Criar as tabelas e os relacionamentos no MySQL",
+  "concluida": true
+}
+
+### 5. Deletar uma Tarefa (Teste opcional)
+DELETE http://localhost:8080/tarefas/1

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProjectFlow</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; margin: 40px; color: #333; }
+        h1 { color: #2c3e50; }
+        .projeto-card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; border-left: 5px solid #3498db; }
+        .projeto-card h3 { margin-top: 0; color: #2980b9; }
+        .data { font-size: 0.85em; color: #7f8c8d; }
+        button { background-color: #3498db; color: white; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        button:hover { background-color: #2980b9; }
+        .btn-excluir { background-color: #e74c3c; padding: 5px 10px; font-size: 0.8em; }
+        .btn-excluir:hover { background-color: #c0392b; }
+        .tarefas-container { margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ccc; display: none; }
+        
+        /* Layout flexível para a tarefa (texto de um lado, botão do outro) */
+        .tarefa-item { background-color: #f9f9f9; padding: 10px; margin-bottom: 5px; border-radius: 4px; border-left: 3px solid #f1c40f; display: flex; justify-content: space-between; align-items: center; }
+        .tarefa-concluida { border-left-color: #2ecc71; text-decoration: line-through; color: #7f8c8d; }
+        .tarefa-info { display: flex; align-items: center; gap: 10px; }
+        
+        .form-container { background: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 30px; border-left: 5px solid #2ecc71; }
+        .form-container input { padding: 10px; margin-right: 10px; border: 1px solid #ccc; border-radius: 4px; width: 250px; }
+        .btn-sucesso { background-color: #2ecc71; }
+        .btn-sucesso:hover { background-color: #27ae60; }
+        .form-tarefa { display: flex; gap: 8px; margin-top: 15px; }
+        .form-tarefa input { padding: 8px; border: 1px solid #ccc; border-radius: 4px; flex: 1; }
+    </style>
+</head>
+<body>
+
+    <h1>🚀 Meus Projetos - ProjectFlow</h1>
+
+    <div class="form-container">
+        <h3>Criar Novo Projeto</h3>
+        <form id="form-projeto">
+            <input type="text" id="nome-projeto" placeholder="Nome do Projeto" required>
+            <input type="text" id="desc-projeto" placeholder="Descrição do Projeto" required>
+            <button type="submit" class="btn-sucesso">Salvar Projeto</button>
+        </form>
+    </div>
+
+    <div id="container-projetos">
+        <p>Carregando projetos do banco de dados...</p>
+    </div>
+
+    <script>
+        // --- 1. CARREGAR PROJETOS ---
+        function carregarProjetos() {
+            fetch('http://localhost:8080/projetos')
+                .then(resposta => resposta.json())
+                .then(projetos => {
+                    const container = document.getElementById('container-projetos');
+                    container.innerHTML = ''; 
+
+                    if (projetos.length === 0) {
+                        container.innerHTML = '<p>Nenhum projeto encontrado.</p>';
+                        return;
+                    }
+
+                    projetos.forEach(projeto => {
+                        const htmlDoCard = `
+                            <div class="projeto-card">
+                                <h3>${projeto.nome} (ID: ${projeto.id})</h3>
+                                <p>${projeto.descricao}</p>
+                                <p class="data">Iniciado em: ${projeto.dataInicio}</p>
+                                
+                                <button onclick="carregarTarefas(${projeto.id})">Ver Tarefas</button>
+                                
+                                <div id="tarefas-do-projeto-${projeto.id}" class="tarefas-container"></div>
+                                
+                                <form class="form-tarefa" onsubmit="criarTarefa(event, ${projeto.id})">
+                                    <input type="text" id="titulo-tarefa-${projeto.id}" placeholder="Nova tarefa..." required>
+                                    <input type="text" id="desc-tarefa-${projeto.id}" placeholder="Descrição...">
+                                    <button type="submit" class="btn-sucesso">+ Add</button>
+                                </form>
+                            </div>
+                        `;
+                        container.innerHTML += htmlDoCard;
+                    });
+                });
+        }
+        carregarProjetos();
+
+        // --- 2. CRIAR PROJETO ---
+        document.getElementById('form-projeto').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const novoProjeto = {
+                nome: document.getElementById('nome-projeto').value,
+                descricao: document.getElementById('desc-projeto').value
+            };
+
+            fetch('http://localhost:8080/projetos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(novoProjeto)
+            }).then(resposta => {
+                if (resposta.status === 201) {
+                    document.getElementById('nome-projeto').value = '';
+                    document.getElementById('desc-projeto').value = '';
+                    carregarProjetos(); 
+                }
+            });
+        });
+
+        // --- 3. CARREGAR TAREFAS (COM CHECKBOX E BOTÃO DE EXCLUIR) ---
+        function carregarTarefas(projetoId) {
+            const divTarefas = document.getElementById(`tarefas-do-projeto-${projetoId}`);
+            if (divTarefas.style.display === 'block') { divTarefas.style.display = 'none'; return; }
+            
+            divTarefas.style.display = 'block';
+            divTarefas.innerHTML = '<p>Buscando tarefas...</p>';
+
+            fetch(`http://localhost:8080/tarefas/projeto/${projetoId}`)
+                .then(resposta => resposta.json())
+                .then(tarefas => {
+                    if (tarefas.length === 0) {
+                        divTarefas.innerHTML = '<p><i>Nenhuma tarefa criada para este projeto ainda.</i></p>';
+                        return;
+                    }
+                    divTarefas.innerHTML = '<h4>Tarefas:</h4>';
+                    tarefas.forEach(tarefa => {
+                        const classeConcluida = tarefa.concluida ? 'tarefa-concluida' : '';
+                        const checkMarcado = tarefa.concluida ? 'checked' : '';
+                        
+                        // Passamos os dados da tarefa para as funções do clique
+                        divTarefas.innerHTML += `
+                            <div class="tarefa-item ${classeConcluida}">
+                                <div class="tarefa-info">
+                                    <input type="checkbox" ${checkMarcado} onchange="atualizarStatusTarefa(${tarefa.id}, '${tarefa.titulo}', '${tarefa.descricao}', this.checked, ${projetoId})">
+                                    <div>
+                                        <strong>${tarefa.titulo}</strong>
+                                        <p style="margin: 0; font-size: 0.9em;">${tarefa.descricao || ''}</p>
+                                    </div>
+                                </div>
+                                <button class="btn-excluir" onclick="deletarTarefa(${tarefa.id}, ${projetoId})">Excluir</button>
+                            </div>
+                        `;
+                    });
+                });
+        }
+
+        // --- 4. CRIAR TAREFA ---
+        function criarTarefa(event, projetoId) {
+            event.preventDefault();
+            const novaTarefa = {
+                titulo: document.getElementById(`titulo-tarefa-${projetoId}`).value,
+                descricao: document.getElementById(`desc-tarefa-${projetoId}`).value
+            };
+
+            fetch(`http://localhost:8080/tarefas/projeto/${projetoId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(novaTarefa)
+            }).then(resposta => {
+                if (resposta.status === 201) {
+                    document.getElementById(`titulo-tarefa-${projetoId}`).value = '';
+                    document.getElementById(`desc-tarefa-${projetoId}`).value = '';
+                    document.getElementById(`tarefas-do-projeto-${projetoId}`).style.display = 'none'; 
+                    carregarTarefas(projetoId);
+                }
+            });
+        }
+
+        // --- 5. NOVO: ATUALIZAR STATUS DA TAREFA (PUT) ---
+        function atualizarStatusTarefa(tarefaId, titulo, descricao, estaConcluida, projetoId) {
+            const tarefaAtualizada = {
+                titulo: titulo,
+                descricao: descricao,
+                concluida: estaConcluida
+            };
+
+            fetch(`http://localhost:8080/tarefas/${tarefaId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(tarefaAtualizada)
+            }).then(resposta => {
+                if (resposta.ok) {
+                    // Esconde e abre a lista de tarefas para atualizar o visual na hora
+                    document.getElementById(`tarefas-do-projeto-${projetoId}`).style.display = 'none';
+                    carregarTarefas(projetoId);
+                } else {
+                    alert("Erro ao atualizar a tarefa!");
+                }
+            });
+        }
+
+        // --- 6. NOVO: DELETAR TAREFA (DELETE) ---
+        function deletarTarefa(tarefaId, projetoId) {
+            // Pede confirmação antes de apagar
+            if (confirm("Tem certeza que deseja apagar esta tarefa para sempre?")) {
+                fetch(`http://localhost:8080/tarefas/${tarefaId}`, {
+                    method: 'DELETE'
+                }).then(resposta => {
+                    if (resposta.ok) {
+                        document.getElementById(`tarefas-do-projeto-${projetoId}`).style.display = 'none';
+                        carregarTarefas(projetoId);
+                    } else {
+                        alert("Erro ao excluir a tarefa!");
+                    }
+                });
+            }
+        }
+    </script>
+
+</body>
+</html>
